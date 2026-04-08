@@ -1,11 +1,1185 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>俄语背单词 - 分组导入/编辑版</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #f1f5f9;
+            margin: 0;
+            padding: 0;
+            padding-bottom: 20px;
+        }
+        .page {
+            display: none;
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+            border-radius: 0;
+            overflow-x: hidden;
+        }
+        .page.active {
+            display: block;
+        }
+        .header {
+            background: #1e293b;
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .back-btn {
+            background: #334155;
+            border: none;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .content {
+            padding: 20px;
+        }
+        button, .btn-like {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 4px 0;
+        }
+        button:active { opacity: 0.8; transform: scale(0.98); }
+        button:disabled {
+            opacity: 0.5;
+            transform: none;
+            cursor: not-allowed;
+        }
+        .btn-secondary { background: #64748b; }
+        .btn-danger { background: #ef4444; }
+        .btn-warning { background: #f59e0b; }
+        .btn-outline {
+            background: white;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+        }
+        .btn-next {
+            background: #10b981;
+            width: 100%;
+            margin-top: 12px;
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+        .word-card {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .question {
+            font-size: 2rem;
+            font-weight: 600;
+            margin: 20px 0;
+            color: #0f172a;
+            word-break: break-word;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            margin: 8px 0;
+        }
+        .search-input {
+            margin-bottom: 16px;
+            background: white;
+        }
+        .stat-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f1f5f9;
+            flex: 1;
+            padding: 12px;
+            border-radius: 16px;
+            text-align: center;
+        }
+        .group-list, .word-list {
+            list-style: none;
+            padding: 0;
+        }
+        .group-item, .word-item {
+            background: #f8fafc;
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .badge {
+            background: #e2e8f0;
+            padding: 4px 10px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+        }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .mode-switch {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .mode-btn {
+            flex: 1;
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+        .mode-btn.active {
+            background: #3b82f6;
+            color: white;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .action-buttons button {
+            flex: 1;
+        }
+        hr {
+            margin: 20px 0;
+        }
+        .small-text {
+            font-size: 0.8rem;
+            color: #475569;
+        }
+        .toast-msg {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            z-index: 1000;
+            opacity: 0;
+            transition: 0.2s;
+            pointer-events: none;
+        }
+        .toast-msg.show {
+            opacity: 1;
+        }
+        .analysis-box {
+            background: #eef2ff;
+            padding: 12px;
+            border-radius: 16px;
+            margin-top: 16px;
+            text-align: left;
+            font-size: 0.85rem;
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+            word-break: break-word;
+            white-space: normal;
+            overflow-x: auto;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1001;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            max-width: 90%;
+            width: 400px;
+            border-radius: 24px;
+            padding: 20px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .word-edit-item {
+            border-bottom: 1px solid #e2e8f0;
+            padding: 12px 0;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 首页 -->
+<div id="homePage" class="page active">
+    <div class="header">
+        <h2>📖 俄语背单词</h2>
+        <button class="back-btn" disabled style="opacity:0.5">首页</button>
+    </div>
+    <div class="content">
+        <button id="toImportBtn">📥 批量导入单词</button>
+        <button id="toGroupsBtn">📂 分组管理</button>
+        <button id="toSelectGroupBtn">🎲 背单词 (全部/分组)</button>
+        <button id="toMistakeBtn">❌ 错题本专项</button>
+        <hr>
+        <div class="stat-card">
+            <strong>📊 总库单词数: <span id="totalCount">0</span></strong>
+        </div>
+        <div class="small-text" style="margin-top: 16px;">✨ 支持动词变位 | 分组导入 | 编辑分组内单词</div>
+    </div>
+</div>
+
+<!-- 批量导入页 -->
+<div id="importPage" class="page">
+    <div class="header">
+        <h2>📥 批量导入</h2>
+        <button class="back-btn goHome">返回</button>
+    </div>
+    <div class="content">
+        <p>格式：序号-俄语-中文-词性-体-变位(动词用逗号分隔)</p>
+        <p>示例：<br>1-мама-妈妈-名词--<br>2-работать-工作-动词-未完成体-работаю,работаешь,работает,работаем,работаете,работают</p>
+        <label>导入到分组：</label>
+        <select id="importTargetGroup">
+            <option value="__master__">📚 总库（不加入分组）</option>
+        </select>
+        <textarea id="importText" rows="8" placeholder="粘贴单词列表..."></textarea>
+        <button id="doImportBtn">开始导入 (自动去重)</button>
+        <div id="importResult" class="small-text" style="margin-top: 10px; color: green;"></div>
+    </div>
+</div>
+
+<!-- 分组管理页（列表） -->
+<div id="groupsPage" class="page">
+    <div class="header">
+        <h2>📂 分组管理</h2>
+        <button class="back-btn goHome">返回</button>
+    </div>
+    <div class="content">
+        <div class="flex-between">
+            <input type="text" id="newGroupName" placeholder="新分组名称" style="flex:1">
+            <button id="createGroupBtn">➕ 新建分组</button>
+        </div>
+        <h3>我的分组</h3>
+        <div id="groupsListContainer"></div>
+        <hr>
+        <h3>总库单词 (可删除)</h3>
+        <input type="text" id="masterSearchInput" class="search-input" placeholder="🔍 搜索俄语或中文...">
+        <div id="masterWordList"></div>
+    </div>
+</div>
+
+<!-- 分组内单词编辑页（动态） -->
+<div id="groupEditPage" class="page">
+    <div class="header">
+        <h2 id="groupEditTitle">编辑分组</h2>
+        <button class="back-btn" id="backFromGroupEdit">返回</button>
+    </div>
+    <div class="content">
+        <div class="flex-between">
+            <input type="text" id="groupWordSearch" placeholder="🔍 搜索分组内单词" style="flex:1">
+            <button id="addWordToGroupBtn" class="btn-secondary">➕ 从总库添加</button>
+        </div>
+        <div id="groupWordsList"></div>
+        <hr>
+        <div id="addWordPanel" style="display: none; margin-top: 16px;">
+            <h4>从总库选择单词添加</h4>
+            <input type="text" id="masterSelectSearch" placeholder="搜索总库单词">
+            <div id="masterSelectList" style="max-height: 300px; overflow-y: auto;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 选择分组背单词页 -->
+<div id="selectGroupPage" class="page">
+    <div class="header">
+        <h2>🎯 选择分组</h2>
+        <button class="back-btn goHome">返回</button>
+    </div>
+    <div class="content">
+        <button id="studyAllBtn" style="background:#10b981">📖 背全部单词 (随机)</button>
+        <h3>📌 背指定分组：</h3>
+        <div id="studyGroupList"></div>
+    </div>
+</div>
+
+<!-- 背单词核心页面 -->
+<div id="studyPage" class="page">
+    <div class="header">
+        <h2 id="studyTitle">📝 背单词</h2>
+        <button class="back-btn" id="exitStudyBtn">退出</button>
+    </div>
+    <div class="content">
+        <div class="mode-switch" id="modeSwitch">
+            <button id="modeRus2Cn" class="mode-btn active">🇷🇺 俄语→中文</button>
+            <button id="modeCn2Rus" class="mode-btn">🇨🇳 中文→俄语</button>
+        </div>
+        <div class="word-card">
+            <div class="question" id="questionText">加载中...</div>
+            <input type="text" id="answerInput" placeholder="输入答案" autocomplete="off">
+            <button id="submitAnswerBtn">✅ 提交</button>
+            <div id="feedbackMsg" style="margin-top: 10px; font-weight: bold;"></div>
+            <div id="analysisArea" class="analysis-box" style="display: none;"></div>
+            <button id="nextQuestionBtn" class="btn-next" style="display: none;">➡ 下一题</button>
+        </div>
+        <div class="action-buttons">
+            <button id="skipForeverBtn" class="btn-danger">⚔️ 斩 (不再出现)</button>
+            <button id="skipTempBtn" class="btn-warning">❓ 不知道 (稍后重试)</button>
+        </div>
+        <div class="stat-grid">
+            <div class="stat-card">📊 已斩: <span id="progressZhan">0</span></div>
+            <div class="stat-card">📋 总题: <span id="progressTotal">0</span></div>
+            <div class="stat-card">⏳ 剩余: <span id="progressRemain">0</span></div>
+        </div>
+        <div class="stat-card">
+            <div>📈 历史最高斩数: <span id="historyMax">0</span></div>
+            <div>🔁 上一次斩数: <span id="lastZhan">0</span></div>
+            <div>🔁 上上次斩数: <span id="lastLastZhan">0</span></div>
+        </div>
+        <div class="stat-card">
+            <div>✅ 总正确: <span id="totalCorrect">0</span> &nbsp;| ❌ 总错误: <span id="totalWrong">0</span></div>
+            <div>📈 正确率: <span id="accuracyRate">0</span>%</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- 数据结构 ----------
+    let appData = {
+        words: [],          // { id, ru, zh, part, aspect, conjugation }
+        nextId: 1,
+        groups: {
+            "📕 错题本": { wordIds: [] }
+        },
+        stats: {
+            totalAnswers: 0,
+            totalCorrect: 0,
+            totalWrong: 0,
+            historyMaxZhan: 0,
+            lastZhan: 0,
+            lastLastZhan: 0
+        }
+    };
+    
+    let currentSession = {
+        active: false,
+        wordPool: [],
+        remainingQueue: [],
+        zhanCount: 0,
+        totalCount: 0,
+        currentQuestion: null,
+        currentMode: "ru2cn",
+        currentWordObj: null,
+        sourceType: "all",
+        sourceName: ""
+    };
+    
+    let waitingForNext = false;
+    let currentEditingGroup = null; // 当前编辑的分组名称
+    
+    const STORAGE_KEY = "russianWordsApp_v2";
+    
+    function saveToLocal() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    }
+    
+    function loadFromLocal() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(raw) {
+            try {
+                const data = JSON.parse(raw);
+                appData = data;
+                if(!appData.groups["📕 错题本"]) appData.groups["📕 错题本"] = { wordIds: [] };
+                if(!appData.stats) appData.stats = { totalAnswers:0, totalCorrect:0, totalWrong:0, historyMaxZhan:0, lastZhan:0, lastLastZhan:0 };
+                ensureWordIds();
+                updateAllUI();
+            } catch(e) {}
+        } else {
+            addExampleWords();
+        }
+        updateTotalCountDisplay();
+    }
+    
+    function ensureWordIds() {
+        let maxId = 0;
+        appData.words.forEach(w => { if(w.id > maxId) maxId = w.id; });
+        appData.nextId = maxId+1;
+        for(let g in appData.groups) {
+            let group = appData.groups[g];
+            if(group.wordIds) {
+                group.wordIds = group.wordIds.filter(id => appData.words.some(w => w.id === id));
+            } else {
+                group.wordIds = [];
+            }
+        }
+        saveToLocal();
+    }
+    
+    function addExampleWords() {
+        const examples = [
+            {ru:"мама", zh:"妈妈", part:"名词", aspect:"", conjugation:""},
+            {ru:"папа", zh:"爸爸", part:"名词", aspect:"", conjugation:""},
+            {ru:"работать", zh:"工作", part:"动词", aspect:"未完成体", conjugation:"работаю,работаешь,работает,работаем,работаете,работают"},
+            {ru:"сказать", zh:"说", part:"动词", aspect:"完成体", conjugation:"скажу,скажешь,скажет,скажем,скажете,скажут"},
+            {ru:"красивый", zh:"漂亮的", part:"形容词", aspect:"", conjugation:""}
+        ];
+        examples.forEach(ex => {
+            addWordToMaster(ex.ru, ex.zh, ex.part, ex.aspect, ex.conjugation);
+        });
+        saveToLocal();
+    }
+    
+    function addWordToMaster(ru, zh, part, aspect, conjugation) {
+        const exists = appData.words.some(w => w.ru === ru);
+        if(exists) return false;
+        const newWord = {
+            id: appData.nextId++,
+            ru: ru.trim(),
+            zh: zh.trim(),
+            part: part.trim(),
+            aspect: aspect.trim(),
+            conjugation: conjugation ? conjugation.trim() : ""
+        };
+        appData.words.push(newWord);
+        return true;
+    }
+    
+    function updateWord(wordId, newRu, newZh, newPart, newAspect, newConjugation) {
+        const word = appData.words.find(w => w.id === wordId);
+        if(word) {
+            word.ru = newRu.trim();
+            word.zh = newZh.trim();
+            word.part = newPart.trim();
+            word.aspect = newAspect.trim();
+            word.conjugation = newConjugation ? newConjugation.trim() : "";
+            saveToLocal();
+            updateAllUI();
+            if(currentEditingGroup) renderGroupEditPage(currentEditingGroup);
+            return true;
+        }
+        return false;
+    }
+    
+    function importWordsWithTarget(text, targetGroup) {
+        const lines = text.split(/\r?\n/);
+        let added = 0, duplicate = 0;
+        for(let line of lines) {
+            line = line.trim();
+            if(line === "") continue;
+            const parts = line.split('-');
+            if(parts.length >= 4) {
+                let ru = parts[1]?.trim();
+                let zh = parts[2]?.trim();
+                let part = parts[3]?.trim();
+                let aspect = parts[4]?.trim() || "";
+                let conjugation = parts[5]?.trim() || "";
+                if(ru && zh && part) {
+                    let wordExists = appData.words.some(w => w.ru === ru);
+                    let newWordId = null;
+                    if(!wordExists) {
+                        const newWord = {
+                            id: appData.nextId++,
+                            ru: ru,
+                            zh: zh,
+                            part: part,
+                            aspect: aspect,
+                            conjugation: conjugation
+                        };
+                        appData.words.push(newWord);
+                        newWordId = newWord.id;
+                        added++;
+                    } else {
+                        duplicate++;
+                        // 如果单词已存在，仍需可能加入分组（分组去重单独处理）
+                        const existingWord = appData.words.find(w => w.ru === ru);
+                        if(existingWord) newWordId = existingWord.id;
+                    }
+                    // 如果目标分组不是总库，且单词已存在或新增后，加入分组
+                    if(targetGroup !== "__master__" && newWordId !== null) {
+                        const group = appData.groups[targetGroup];
+                        if(group && !group.wordIds.includes(newWordId)) {
+                            group.wordIds.push(newWordId);
+                        }
+                    }
+                }
+            }
+        }
+        saveToLocal();
+        updateAllUI();
+        return { added, duplicate };
+    }
+    
+    function deleteWordFromMaster(wordId) {
+        for(let g in appData.groups) {
+            appData.groups[g].wordIds = appData.groups[g].wordIds.filter(id => id !== wordId);
+        }
+        appData.words = appData.words.filter(w => w.id !== wordId);
+        saveToLocal();
+        updateAllUI();
+        renderMasterWordList();
+    }
+    
+    function removeWordFromGroupOnly(groupName, wordId) {
+        if(appData.groups[groupName]) {
+            appData.groups[groupName].wordIds = appData.groups[groupName].wordIds.filter(id => id !== wordId);
+            saveToLocal();
+            updateAllUI();
+            if(currentEditingGroup === groupName) renderGroupEditPage(groupName);
+        }
+    }
+    
+    function createGroup(name) {
+        if(!name || appData.groups[name]) return false;
+        appData.groups[name] = { wordIds: [] };
+        saveToLocal();
+        updateAllUI();
+        return true;
+    }
+    function renameGroup(oldName, newName) {
+        if(!appData.groups[oldName] || appData.groups[newName] || oldName === "📕 错题本") return false;
+        appData.groups[newName] = appData.groups[oldName];
+        delete appData.groups[oldName];
+        saveToLocal();
+        updateAllUI();
+        return true;
+    }
+    function deleteGroup(groupName) {
+        if(groupName === "📕 错题本") { showToast("错题本不能删除"); return false; }
+        if(appData.groups[groupName]) {
+            delete appData.groups[groupName];
+            saveToLocal();
+            updateAllUI();
+            return true;
+        }
+        return false;
+    }
+    function addWordToGroup(groupName, wordId) {
+        if(!appData.groups[groupName]) return false;
+        if(!appData.groups[groupName].wordIds.includes(wordId)) {
+            appData.groups[groupName].wordIds.push(wordId);
+            saveToLocal();
+            updateAllUI();
+            if(currentEditingGroup === groupName) renderGroupEditPage(groupName);
+            return true;
+        } else {
+            showToast("分组内已存在该单词");
+            return false;
+        }
+    }
+    
+    function addToMistakeBook(wordId) {
+        const mistakeGroup = "📕 错题本";
+        if(!appData.groups[mistakeGroup]) appData.groups[mistakeGroup] = { wordIds: [] };
+        if(!appData.groups[mistakeGroup].wordIds.includes(wordId)) {
+            appData.groups[mistakeGroup].wordIds.push(wordId);
+            saveToLocal();
+        }
+    }
+    
+    function getWordAnalysis(word) {
+        let base = `${word.ru} - ${word.zh}`;
+        if(word.part === "动词") {
+            base += ` (${word.part}, ${word.aspect})`;
+            if(word.conjugation && word.conjugation.trim() !== "") {
+                base += `\n变位：${word.conjugation}`;
+            } else {
+                base += `\n变位：暂无数据`;
+            }
+        } else {
+            base += ` (${word.part})`;
+        }
+        return base;
+    }
+    
+    function getDisplayWord(wordObj) {
+        if(wordObj.part === "动词") {
+            return `${wordObj.ru} (${wordObj.part}, ${wordObj.aspect})`;
+        } else {
+            return `${wordObj.ru} (${wordObj.part})`;
+        }
+    }
+    
+    function showAnalysis(word) {
+        const analysisDiv = document.getElementById("analysisArea");
+        analysisDiv.style.display = "block";
+        analysisDiv.innerHTML = `📖 解析：<br>${getWordAnalysis(word).replace(/\n/g, '<br>')}`;
+    }
+    
+    function setButtonsEnabled(enabled) {
+        const btns = ['submitAnswerBtn', 'skipForeverBtn', 'skipTempBtn'];
+        btns.forEach(id => {
+            const btn = document.getElementById(id);
+            if(btn) btn.disabled = !enabled;
+        });
+        const input = document.getElementById("answerInput");
+        if(input) input.disabled = !enabled;
+    }
+    
+    function showNextButton(show) {
+        const nextBtn = document.getElementById("nextQuestionBtn");
+        if(nextBtn) nextBtn.style.display = show ? "block" : "none";
+    }
+    
+    function goToNextQuestion() {
+        if(!currentSession.active) return;
+        if(!waitingForNext) return;
+        waitingForNext = false;
+        showNextButton(false);
+        setButtonsEnabled(true);
+        document.getElementById("analysisArea").style.display = "none";
+        document.getElementById("analysisArea").innerHTML = "";
+        document.getElementById("feedbackMsg").innerHTML = "";
+        loadNextQuestion();
+    }
+    
+    function updateAllUI() {
+        updateTotalCountDisplay();
+        renderGroupsManager();
+        renderMasterWordList();
+        renderStudyGroupList();
+        updateStatsDisplay();
+        // 更新导入页的分组下拉列表
+        const select = document.getElementById("importTargetGroup");
+        if(select) {
+            const currentVal = select.value;
+            select.innerHTML = '<option value="__master__">📚 总库（不加入分组）</option>';
+            for(let g in appData.groups) {
+                const option = document.createElement("option");
+                option.value = g;
+                option.textContent = g;
+                select.appendChild(option);
+            }
+            if(currentVal && [...select.options].some(opt => opt.value === currentVal)) select.value = currentVal;
+        }
+    }
+    
+    function updateTotalCountDisplay() {
+        document.getElementById("totalCount").innerText = appData.words.length;
+    }
+    
+    function renderGroupsManager() {
+        const container = document.getElementById("groupsListContainer");
+        if(!container) return;
+        container.innerHTML = "";
+        for(let gName in appData.groups) {
+            const group = appData.groups[gName];
+            const div = document.createElement("div");
+            div.className = "group-item";
+            const wordCount = group.wordIds.length;
+            div.innerHTML = `
+                <div><strong>${gName}</strong> <span class="badge">${wordCount}词</span></div>
+                <div>
+                    ${gName !== "📕 错题本" ? `<button class="btn-secondary renameGroupBtn" data-name="${gName}">✏️重命名</button>` : ''}
+                    ${gName !== "📕 错题本" ? `<button class="btn-danger delGroupBtn" data-name="${gName}">🗑删除分组</button>` : ''}
+                    <button class="btn-outline editGroupWordsBtn" data-name="${gName}">✏️编辑单词</button>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+        document.querySelectorAll(".renameGroupBtn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                let old = btn.dataset.name;
+                let newName = prompt("输入新分组名称", old);
+                if(newName && newName !== old) renameGroup(old, newName);
+            });
+        });
+        document.querySelectorAll(".delGroupBtn").forEach(btn => {
+            btn.addEventListener("click", () => deleteGroup(btn.dataset.name));
+        });
+        document.querySelectorAll(".editGroupWordsBtn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                currentEditingGroup = btn.dataset.name;
+                renderGroupEditPage(currentEditingGroup);
+                showPage("groupEditPage");
+            });
+        });
+    }
+    
+    function renderGroupEditPage(groupName) {
+        const group = appData.groups[groupName];
+        if(!group) return;
+        document.getElementById("groupEditTitle").innerText = `✏️ 编辑分组: ${groupName}`;
+        const searchInput = document.getElementById("groupWordSearch");
+        const container = document.getElementById("groupWordsList");
+        const filter = searchInput ? searchInput.value.trim().toLowerCase() : "";
+        let words = group.wordIds.map(id => appData.words.find(w => w.id === id)).filter(w=>w);
+        if(filter) {
+            words = words.filter(w => w.ru.toLowerCase().includes(filter) || w.zh.toLowerCase().includes(filter));
+        }
+        container.innerHTML = "";
+        if(words.length === 0) {
+            container.innerHTML = '<div class="small-text">该分组暂无单词，请从总库添加。</div>';
+        } else {
+            words.forEach(word => {
+                const div = document.createElement("div");
+                div.className = "word-item";
+                div.innerHTML = `
+                    <div style="flex:1;">
+                        <strong>${word.ru}</strong> - ${word.zh}<br>
+                        <span class="small-text">${word.part} ${word.aspect}</span>
+                    </div>
+                    <div>
+                        <button class="btn-secondary btn-sm editWordBtn" data-id="${word.id}">✏️编辑</button>
+                        <button class="btn-danger btn-sm removeFromGroupBtn" data-id="${word.id}">从分组移除</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+        // 绑定编辑和移除事件
+        document.querySelectorAll(".editWordBtn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const wordId = parseInt(btn.dataset.id);
+                const word = appData.words.find(w => w.id === wordId);
+                if(word) showEditWordModal(word, groupName);
+            });
+        });
+        document.querySelectorAll(".removeFromGroupBtn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const wordId = parseInt(btn.dataset.id);
+                if(confirm("确定从该分组移除这个单词吗？不会从总库删除。")) {
+                    removeWordFromGroupOnly(groupName, wordId);
+                }
+            });
+        });
+        // 从总库添加面板
+        const addPanel = document.getElementById("addWordPanel");
+        const addBtn = document.getElementById("addWordToGroupBtn");
+        addBtn.onclick = () => {
+            addPanel.style.display = addPanel.style.display === "none" ? "block" : "none";
+            if(addPanel.style.display === "block") renderMasterSelectList(groupName);
+        };
+        const masterSearch = document.getElementById("masterSelectSearch");
+        if(masterSearch) {
+            masterSearch.oninput = () => renderMasterSelectList(groupName);
+        }
+    }
+    
+    function renderMasterSelectList(groupName) {
+        const container = document.getElementById("masterSelectList");
+        const search = document.getElementById("masterSelectSearch")?.value.trim().toLowerCase() || "";
+        let words = appData.words.filter(w => !appData.groups[groupName].wordIds.includes(w.id));
+        if(search) {
+            words = words.filter(w => w.ru.toLowerCase().includes(search) || w.zh.toLowerCase().includes(search));
+        }
+        container.innerHTML = "";
+        if(words.length === 0) {
+            container.innerHTML = '<div class="small-text">没有可添加的单词</div>';
+        } else {
+            words.forEach(word => {
+                const div = document.createElement("div");
+                div.className = "word-edit-item";
+                div.innerHTML = `
+                    <div><strong>${word.ru}</strong> - ${word.zh}</div>
+                    <button class="btn-sm" data-id="${word.id}">➕ 添加到分组</button>
+                `;
+                container.appendChild(div);
+            });
+            container.querySelectorAll("button").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const wordId = parseInt(btn.dataset.id);
+                    addWordToGroup(groupName, wordId);
+                    renderMasterSelectList(groupName);
+                });
+            });
+        }
+    }
+    
+    function showEditWordModal(word, groupName) {
+        const modal = document.createElement("div");
+        modal.className = "modal active";
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h3>编辑单词</h3>
+                <label>俄语</label><input id="editRu" value="${escapeHtml(word.ru)}">
+                <label>中文</label><input id="editZh" value="${escapeHtml(word.zh)}">
+                <label>词性</label><input id="editPart" value="${escapeHtml(word.part)}">
+                <label>体（动词）</label><input id="editAspect" value="${escapeHtml(word.aspect)}">
+                <label>变位（动词，逗号分隔）</label><textarea id="editConjugation" rows="2">${escapeHtml(word.conjugation)}</textarea>
+                <div class="flex-between" style="margin-top: 16px;">
+                    <button id="saveEditBtn" class="btn-secondary">保存</button>
+                    <button id="cancelEditBtn" class="btn-outline">取消</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        const saveBtn = modal.querySelector("#saveEditBtn");
+        const cancelBtn = modal.querySelector("#cancelEditBtn");
+        saveBtn.onclick = () => {
+            const newRu = modal.querySelector("#editRu").value;
+            const newZh = modal.querySelector("#editZh").value;
+            const newPart = modal.querySelector("#editPart").value;
+            const newAspect = modal.querySelector("#editAspect").value;
+            const newConjugation = modal.querySelector("#editConjugation").value;
+            if(newRu && newZh && newPart) {
+                updateWord(word.id, newRu, newZh, newPart, newAspect, newConjugation);
+                modal.remove();
+                if(currentEditingGroup) renderGroupEditPage(currentEditingGroup);
+                showToast("单词已更新");
+            } else {
+                showToast("请填写完整信息");
+            }
+        };
+        cancelBtn.onclick = () => modal.remove();
+    }
+    
+    function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+    
+    let currentMasterFilter = "";
+    function getFilteredWords() {
+        if(!currentMasterFilter.trim()) return [...appData.words];
+        const keyword = currentMasterFilter.trim().toLowerCase();
+        return appData.words.filter(w => w.ru.toLowerCase().includes(keyword) || w.zh.toLowerCase().includes(keyword));
+    }
+    
+    function renderMasterWordList() {
+        const container = document.getElementById("masterWordList");
+        if(!container) return;
+        const filtered = getFilteredWords();
+        if(filtered.length === 0) {
+            container.innerHTML = '<div class="small-text" style="padding: 20px; text-align: center;">🔍 没有找到匹配的单词</div>';
+            return;
+        }
+        container.innerHTML = "";
+        filtered.forEach(word => {
+            const div = document.createElement("div");
+            div.className = "word-item";
+            div.innerHTML = `
+                <span>${word.ru} - ${word.zh} (${word.part} ${word.aspect ? word.aspect : ''})</span>
+                <button class="btn-danger delMasterWordBtn" data-id="${word.id}">删除</button>
+            `;
+            container.appendChild(div);
+        });
+        document.querySelectorAll(".delMasterWordBtn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                const id = parseInt(btn.dataset.id);
+                deleteWordFromMaster(id);
+            });
+        });
+    }
+    
+    function renderStudyGroupList() {
+        const container = document.getElementById("studyGroupList");
+        if(!container) return;
+        container.innerHTML = "";
+        for(let gName in appData.groups) {
+            if(gName === "📕 错题本") continue;
+            const btn = document.createElement("button");
+            btn.innerText = `${gName} (${appData.groups[gName].wordIds.length}词)`;
+            btn.style.margin = "6px";
+            btn.addEventListener("click", () => startStudySession(gName));
+            container.appendChild(btn);
+        }
+    }
+    
+    function startStudySession(groupName = null) {
+        if(waitingForNext) return;
+        let wordPool = [];
+        if(groupName === null) {
+            wordPool = [...appData.words];
+            currentSession.sourceType = "all";
+            currentSession.sourceName = "全部单词";
+        } else {
+            const group = appData.groups[groupName];
+            if(!group) return;
+            wordPool = group.wordIds.map(id => appData.words.find(w => w.id === id)).filter(w=>w);
+            currentSession.sourceType = groupName;
+            currentSession.sourceName = groupName;
+        }
+        if(wordPool.length === 0) {
+            alert("当前无单词可背，请先导入单词或添加单词到分组。");
+            return;
+        }
+        wordPool = shuffleArray([...wordPool]);
+        currentSession.wordPool = wordPool;
+        currentSession.remainingQueue = [...wordPool];
+        currentSession.zhanCount = 0;
+        currentSession.totalCount = wordPool.length;
+        currentSession.active = true;
+        currentSession.currentMode = "ru2cn";
+        waitingForNext = false;
+        updateStudyStatsDisplay();
+        showPage("studyPage");
+        document.getElementById("studyTitle").innerHTML = `📖 ${currentSession.sourceName}`;
+        setModeUI();
+        setButtonsEnabled(true);
+        showNextButton(false);
+        loadNextQuestion();
+    }
+    
+    function loadNextQuestion() {
+        if(!currentSession.active) return;
+        if(currentSession.remainingQueue.length === 0) {
+            endStudySession();
+            return;
+        }
+        const randomIndex = Math.floor(Math.random() * currentSession.remainingQueue.length);
+        currentSession.currentWordObj = currentSession.remainingQueue[randomIndex];
+        const word = currentSession.currentWordObj;
+        if(currentSession.currentMode === "ru2cn") {
+            document.getElementById("questionText").innerHTML = getDisplayWord(word);
+        } else {
+            document.getElementById("questionText").innerHTML = `${word.zh}`;
+        }
+        document.getElementById("answerInput").value = "";
+        document.getElementById("feedbackMsg").innerHTML = "";
+        document.getElementById("analysisArea").style.display = "none";
+        document.getElementById("answerInput").disabled = false;
+        document.getElementById("answerInput").focus();
+        updateStudyStatsDisplay();
+        setButtonsEnabled(true);
+        waitingForNext = false;
+        showNextButton(false);
+    }
+    
+    function afterAnswer(wasCorrect, word) {
+        showAnalysis(word);
+        setButtonsEnabled(false);
+        waitingForNext = true;
+        showNextButton(true);
+    }
+    
+    function checkAnswer() {
+        if(!currentSession.active || !currentSession.currentWordObj) return;
+        if(waitingForNext) return;
+        const userAnswer = document.getElementById("answerInput").value.trim().toLowerCase();
+        const word = currentSession.currentWordObj;
+        let isCorrect = false;
+        if(currentSession.currentMode === "ru2cn") {
+            isCorrect = (userAnswer === word.zh.toLowerCase());
+        } else {
+            isCorrect = (userAnswer === word.ru.toLowerCase());
+        }
+        appData.stats.totalAnswers++;
+        if(isCorrect) {
+            appData.stats.totalCorrect++;
+            document.getElementById("feedbackMsg").innerHTML = "✅ 正确！";
+            removeCurrentWordFromQueue(true);
+        } else {
+            appData.stats.totalWrong++;
+            document.getElementById("feedbackMsg").innerHTML = `❌ 错误！ 正确答案: ${currentSession.currentMode === "ru2cn" ? word.zh : word.ru}`;
+            addToMistakeBook(word.id);
+        }
+        saveToLocal();
+        updateStatsDisplay();
+        updateStudyStatsDisplay();
+        afterAnswer(isCorrect, word);
+    }
+    
+    function removeCurrentWordFromQueue(isZhanOrCorrect) {
+        if(!currentSession.currentWordObj) return;
+        const idx = currentSession.remainingQueue.findIndex(w => w.id === currentSession.currentWordObj.id);
+        if(idx !== -1) {
+            currentSession.remainingQueue.splice(idx, 1);
+            if(isZhanOrCorrect) currentSession.zhanCount++;
+            updateStudyStatsDisplay();
+        }
+    }
+    
+    function skipForever() {
+        if(!currentSession.active || !currentSession.currentWordObj) return;
+        if(waitingForNext) return;
+        const word = currentSession.currentWordObj;
+        removeCurrentWordFromQueue(true);
+        document.getElementById("feedbackMsg").innerHTML = "⚔️ 已斩，不再出现";
+        saveToLocal();
+        updateStudyStatsDisplay();
+        afterAnswer(true, word);
+    }
+    
+    function skipTemp() {
+        if(!currentSession.active || !currentSession.currentWordObj) return;
+        if(waitingForNext) return;
+        const word = currentSession.currentWordObj;
+        const idx = currentSession.remainingQueue.findIndex(w => w.id === currentSession.currentWordObj.id);
+        if(idx !== -1) {
+            const wordItem = currentSession.remainingQueue.splice(idx,1)[0];
+            currentSession.remainingQueue.push(wordItem);
+        }
+        document.getElementById("feedbackMsg").innerHTML = "❓ 标记为不知道，稍后重试";
+        saveToLocal();
+        updateStudyStatsDisplay();
+        afterAnswer(false, word);
+    }
+    
+    function endStudySession() {
+        currentSession.active = false;
+        waitingForNext = false;
+        const currentZhan = currentSession.zhanCount;
+        const lastZhan = appData.stats.lastZhan;
+        appData.stats.lastLastZhan = lastZhan;
+        appData.stats.lastZhan = currentZhan;
+        if(currentZhan > appData.stats.historyMaxZhan) {
+            appData.stats.historyMaxZhan = currentZhan;
+        }
+        saveToLocal();
+        updateStatsDisplay();
+        alert(`🎉 本次背诵结束！ 共斩 ${currentZhan} / ${currentSession.totalCount} 个单词`);
+        showPage("homePage");
+    }
+    
+    function updateStudyStatsDisplay() {
+        document.getElementById("progressZhan").innerText = currentSession.zhanCount;
+        document.getElementById("progressTotal").innerText = currentSession.totalCount;
+        document.getElementById("progressRemain").innerText = currentSession.remainingQueue.length;
+        document.getElementById("historyMax").innerText = appData.stats.historyMaxZhan;
+        document.getElementById("lastZhan").innerText = appData.stats.lastZhan;
+        document.getElementById("lastLastZhan").innerText = appData.stats.lastLastZhan;
+    }
+    
+    function updateStatsDisplay() {
+        const total = appData.stats.totalAnswers;
+        const correct = appData.stats.totalCorrect;
+        const wrong = appData.stats.totalWrong;
+        document.getElementById("totalCorrect").innerText = correct;
+        document.getElementById("totalWrong").innerText = wrong;
+        const rate = total === 0 ? 0 : ((correct / total)*100).toFixed(1);
+        document.getElementById("accuracyRate").innerText = rate;
+        document.getElementById("historyMax").innerText = appData.stats.historyMaxZhan;
+        document.getElementById("lastZhan").innerText = appData.stats.lastZhan;
+        document.getElementById("lastLastZhan").innerText = appData.stats.lastLastZhan;
+    }
+    
+    function setModeUI() {
+        const isRu2cn = currentSession.currentMode === "ru2cn";
+        document.getElementById("modeRus2Cn").classList.toggle("active", isRu2cn);
+        document.getElementById("modeCn2Rus").classList.toggle("active", !isRu2cn);
+    }
+    
+    function shuffleArray(arr) {
+        for(let i=arr.length-1;i>0;i--) {
+            const j = Math.floor(Math.random()*(i+1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+    
+    function showPage(pageId) {
+        document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+        document.getElementById(pageId).classList.add("active");
+        if(pageId === "homePage") {
+            updateAllUI();
+            if(currentSession.active) currentSession.active = false;
+            waitingForNext = false;
+        }
+        if(pageId === "groupsPage") {
+            renderGroupsManager();
+            renderMasterWordList();
+            const searchInput = document.getElementById("masterSearchInput");
+            if(searchInput) {
+                searchInput.value = currentMasterFilter;
+                searchInput.oninput = (e) => {
+                    currentMasterFilter = e.target.value;
+                    renderMasterWordList();
+                };
+            }
+        }
+        if(pageId === "groupEditPage" && currentEditingGroup) {
+            renderGroupEditPage(currentEditingGroup);
+            const searchInput = document.getElementById("groupWordSearch");
+            if(searchInput) {
+                searchInput.oninput = () => renderGroupEditPage(currentEditingGroup);
+            }
+        }
+        if(pageId === "selectGroupPage") renderStudyGroupList();
+        if(pageId === "importPage") document.getElementById("importResult").innerHTML = "";
+        updateStatsDisplay();
+    }
+    
+    function showToast(msg) {
+        let toast = document.getElementById("toastMsg");
+        if(!toast){
+            toast = document.createElement("div");
+            toast.id = "toastMsg";
+            toast.className = "toast-msg";
+            document.body.appendChild(toast);
+        }
+        toast.innerText = msg;
+        toast.classList.add("show");
+        setTimeout(()=> toast.classList.remove("show"), 2000);
+    }
+    
+    // 绑定事件
+    document.getElementById("toImportBtn")?.addEventListener("click", ()=> showPage("importPage"));
+    document.getElementById("toGroupsBtn")?.addEventListener("click", ()=> showPage("groupsPage"));
+    document.getElementById("toSelectGroupBtn")?.addEventListener("click", ()=> showPage("selectGroupPage"));
+    document.getElementById("toMistakeBtn")?.addEventListener("click", ()=> startStudySession("📕 错题本"));
+    document.querySelectorAll(".goHome").forEach(btn => btn.addEventListener("click", ()=> showPage("homePage")));
+    document.getElementById("backFromGroupEdit")?.addEventListener("click", ()=> showPage("groupsPage"));
+    document.getElementById("doImportBtn")?.addEventListener("click", ()=>{
+        const text = document.getElementById("importText").value;
+        const target = document.getElementById("importTargetGroup").value;
+        const res = importWordsWithTarget(text, target);
+        document.getElementById("importResult").innerHTML = `✅ 导入成功: ${res.added} 个，重复跳过: ${res.duplicate} 个`;
+        updateAllUI();
+    });
+    document.getElementById("createGroupBtn")?.addEventListener("click", ()=>{
+        const name = document.getElementById("newGroupName").value.trim();
+        if(name) createGroup(name);
+        else showToast("请输入分组名");
+        document.getElementById("newGroupName").value = "";
+    });
+    document.getElementById("studyAllBtn")?.addEventListener("click", ()=> startStudySession(null));
+    document.getElementById("exitStudyBtn")?.addEventListener("click", ()=> { if(currentSession.active) endStudySession(); showPage("homePage"); });
+    document.getElementById("submitAnswerBtn")?.addEventListener("click", checkAnswer);
+    document.getElementById("skipForeverBtn")?.addEventListener("click", skipForever);
+    document.getElementById("skipTempBtn")?.addEventListener("click", skipTemp);
+    document.getElementById("nextQuestionBtn")?.addEventListener("click", goToNextQuestion);
+    document.getElementById("modeRus2Cn")?.addEventListener("click", ()=>{
+        if(currentSession.active && !waitingForNext) {
+            currentSession.currentMode = "ru2cn";
+            setModeUI();
+            loadNextQuestion();
+        }
+    });
+    document.getElementById("modeCn2Rus")?.addEventListener("click", ()=>{
+        if(currentSession.active && !waitingForNext) {
+            currentSession.currentMode = "cn2ru";
+            setModeUI();
+            loadNextQuestion();
+        }
+    });
+    
+    loadFromLocal();
+    updateAllUI();
+</script>
+<div id="toastMsg" class="toast-msg"></div>
+</body>
 </html>
