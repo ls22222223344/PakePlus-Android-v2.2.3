@@ -682,8 +682,34 @@
     function updateStatsDisplay() { const t=appData.stats.totalAnswers, c=appData.stats.totalCorrect, w=appData.stats.totalWrong; document.getElementById("totalCorrect").innerText=c; document.getElementById("totalWrong").innerText=w; const rate=t===0?0:((c/t)*100).toFixed(1); document.getElementById("accuracyRate").innerText=rate; document.getElementById("historyMax").innerText=appData.stats.historyMaxZhan; document.getElementById("lastZhan").innerText=appData.stats.lastZhan; document.getElementById("lastLastZhan").innerText=appData.stats.lastLastZhan; }
 
     // ---------- UI 渲染 ----------
-    function updateAllUI() { updateTotalCountDisplay(); renderGroupsManager(); renderMasterWordList(); renderStudyGroupList(); updateStatsDisplay(); refreshCustomGroupSelect(); }
+    function updateAllUI() { 
+        updateTotalCountDisplay(); 
+        renderGroupsManager(); 
+        renderMasterWordList(); 
+        renderStudyGroupList(); 
+        updateStatsDisplay(); 
+        refreshCustomGroupSelect();
+        refreshImportGroupSelect();   // 刷新导入页面分组下拉框
+    }
     function updateTotalCountDisplay() { document.getElementById("totalCount").innerText = appData.words.length; }
+    
+    // 刷新导入页面下拉框
+    function refreshImportGroupSelect() {
+        const sel = document.getElementById("importTargetGroup");
+        if(!sel) return;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="__master__">📚 总库（不加入分组）</option>';
+        for(let g in appData.groups) {
+            if(g === "📕 错题本") continue; // 错题本不作为导入目标（可选，但保留也可以）
+            const opt = document.createElement("option");
+            opt.value = g;
+            opt.textContent = g;
+            sel.appendChild(opt);
+        }
+        if(currentVal && [...sel.options].some(o=>o.value === currentVal)) sel.value = currentVal;
+        else sel.value = "__master__";
+    }
+    
     function renderGroupsManager() {
         const cont = document.getElementById("groupsListContainer"); if(!cont) return; cont.innerHTML = "";
         for(let gName in appData.groups) {
@@ -802,7 +828,7 @@
         if(pageId === "groupsPage") { renderGroupsManager(); renderMasterWordList(); const inp=document.getElementById("masterSearchInput"); if(inp){ inp.value=currentMasterFilter; inp.oninput=(e)=>{ currentMasterFilter=e.target.value; renderMasterWordList(); }; } }
         if(pageId === "groupEditPage" && currentEditingGroup) { renderGroupEditPage(currentEditingGroup); const inp=document.getElementById("groupWordSearch"); if(inp) inp.oninput=()=>renderGroupEditPage(currentEditingGroup); }
         if(pageId === "selectGroupPage") renderStudyGroupList();
-        if(pageId === "importPage") document.getElementById("importResult").innerHTML="";
+        if(pageId === "importPage") { refreshImportGroupSelect(); document.getElementById("importResult").innerHTML=""; }
         if(pageId === "customStudyPage") refreshCustomGroupSelect();
         updateStatsDisplay();
     }
