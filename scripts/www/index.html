@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>俄语背单词 - DeepSeek重音版</title>
+    <title>俄语背单词 - 智能重音版</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background: #f1f5f9; margin: 0; padding: 0; padding-bottom: 20px; }
@@ -48,7 +48,6 @@
         .modal-content { background: white; max-width: 90%; width: 400px; border-radius: 24px; padding: 20px; max-height: 80vh; overflow-y: auto; }
         .word-edit-item { border-bottom: 1px solid #e2e8f0; padding: 12px 0; }
         .mistake-count-inline { background: #fee2e2; color: #dc2626; border-radius: 20px; padding: 2px 8px; font-size: 0.7rem; margin-left: 8px; }
-        .api-status { font-size: 0.75rem; margin-top: 8px; color: #3b82f6; }
         .loading-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 6px; vertical-align: middle; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
@@ -116,6 +115,8 @@
         </div>
         <input type="text" id="masterSearchInput" class="search-input" placeholder="🔍 搜索俄语或中文...">
         <div id="masterWordList"></div>
+        <hr>
+        <button id="clearMistakeBookBtn" class="btn-warning btn-sm">🗑 清空错题本</button>
     </div>
 </div>
 
@@ -233,9 +234,8 @@
     let waitingForNext = false;
     let currentEditingGroup = null;
     let currentMasterFilter = "";
-    const STORAGE_KEY = "russianWordsApp_v4";
+    const STORAGE_KEY = "russianWordsApp_v6";
     const LAST_SESSION_KEY = "lastStudySession";
-    const CUSTOM_SETTING_KEY = "customStudySetting";
     const DEEPSEEK_API_KEY = "deepseek_api_key";
 
     // ---------- 辅助函数 ----------
@@ -379,6 +379,7 @@
     function deleteGroup(groupName) { if(groupName === "📕 错题本") { showToast("错题本不能删除"); return false; } if(appData.groups[groupName]) { delete appData.groups[groupName]; saveToLocal(); updateAllUI(); return true; } return false; }
     function addWordToGroup(groupName, wordId) { if(!appData.groups[groupName]) return false; if(!appData.groups[groupName].wordIds.includes(wordId)) { appData.groups[groupName].wordIds.push(wordId); saveToLocal(); updateAllUI(); if(currentEditingGroup === groupName) renderGroupEditPage(groupName); return true; } else { showToast("分组内已存在该单词"); return false; } }
     function addToMistakeBook(wordId) { const g = "📕 错题本"; if(!appData.groups[g]) appData.groups[g] = { wordIds: [] }; if(!appData.groups[g].wordIds.includes(wordId)) { appData.groups[g].wordIds.push(wordId); saveToLocal(); } }
+    function clearMistakeBook() { if(appData.groups["📕 错题本"]) { appData.groups["📕 错题本"].wordIds = []; saveToLocal(); updateAllUI(); showToast("错题本已清空"); } }
     function getWordAnalysis(word) { 
         let displayRu = (word.stressedRu && word.stressedRu.trim()) ? word.stressedRu : word.ru;
         let base = `${displayRu} - ${word.zh}`;
@@ -390,19 +391,68 @@
     // ---------- 背诵核心逻辑 ----------
     function shuffleArray(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
     
+    function saveCurrentSession() {
+        if(!currentSession.active) return;
+        const sessionToSave = {
+            sourceType: currentSession.sourceType,
+            sourceName: currentSession.sourceName,
+            zhanCount: currentSession.zhanCount,
+            totalCount: currentSession.totalCount,
+            currentMode: currentSession.currentMode,
+            remainingQueueIds: currentSession.remainingQueue.map(w => w.id),
+            wordPoolIds: currentSession.wordPool.map(w => w.id),
+            sessionMistakeCount: currentSession.sessionMistakeCount
+        };
+        localStorage.setItem(LAST_SESSION_KEY, JSON.stringify(sessionToSave));
+    }
+    
+    function clearSavedSession() { localStorage.removeItem(LAST_SESSION_KEY); }
+    
+    function restoreSession(sessionData) {
+        const remainingQueue = sessionData.remainingQueueIds.map(id => appData.words.find(w => w.id === id)).filter(w => w);
+        const wordPool = sessionData.wordPoolIds.map(id => appData.words.find(w => w.id === id)).filter(w => w);
+        if(remainingQueue.length === 0 || wordPool.length === 0) {
+            showToast("上次背诵记录中的单词已不存在，无法恢复");
+            return false;
+        }
+        currentSession.active = true;
+        currentSession.sourceType = sessionData.sourceType;
+        currentSession.sourceName = sessionData.sourceName;
+        currentSession.zhanCount = sessionData.zhanCount;
+        currentSession.totalCount = sessionData.totalCount;
+        currentSession.currentMode = sessionData.currentMode || "ru2cn";
+        currentSession.remainingQueue = remainingQueue;
+        currentSession.wordPool = wordPool;
+        currentSession.sessionMistakeCount = sessionData.sessionMistakeCount || {};
+        waitingForNext = false;
+        updateStudyStatsDisplay();
+        showPage("studyPage");
+        document.getElementById("studyTitle").innerHTML = `📖 ${currentSession.sourceName} (继续上次)`;
+        setModeUI();
+        setButtonsEnabled(true);
+        showNextButton(false);
+        if(currentSession.remainingQueue.length > 0) loadNextQuestion();
+        else endStudySession();
+        return true;
+    }
+    
     function startStandardStudy(groupName = null) {
-        const lastSession = localStorage.getItem(LAST_SESSION_KEY);
-        if(lastSession && !currentSession.active) {
+        const lastSessionRaw = localStorage.getItem(LAST_SESSION_KEY);
+        if(lastSessionRaw && !currentSession.active) {
             try {
-                const ls = JSON.parse(lastSession);
-                if((groupName === null && ls.sourceType === "all") || (groupName !== null && ls.sourceType === groupName)) {
+                const ls = JSON.parse(lastSessionRaw);
+                const isSameSource = (groupName === null && ls.sourceType === "all") || 
+                                     (groupName === "📕 错题本" && ls.sourceType === "mistake") ||
+                                     (groupName !== null && groupName !== "📕 错题本" && ls.sourceType === groupName);
+                if(isSameSource) {
                     if(confirm(`发现上次未完成的背诵（${ls.sourceName}，已完成 ${ls.zhanCount}/${ls.totalCount} 个单词），是否继续？`)) {
                         restoreSession(ls);
                         return;
-                    } else { localStorage.removeItem(LAST_SESSION_KEY); }
-                } else { localStorage.removeItem(LAST_SESSION_KEY); }
-            } catch(e) { localStorage.removeItem(LAST_SESSION_KEY); }
+                    } else { clearSavedSession(); }
+                } else { clearSavedSession(); }
+            } catch(e) { clearSavedSession(); }
         }
+        
         let wordPool = [];
         if(groupName === null) {
             wordPool = [...appData.words];
@@ -410,12 +460,17 @@
             currentSession.sourceName = "全部单词";
         } else if(groupName === "📕 错题本") {
             const group = appData.groups["📕 错题本"];
+            if(!group || group.wordIds.length === 0) {
+                alert("错题本为空，请先在做错单词时自动添加，或手动添加单词到错题本分组。");
+                return;
+            }
             wordPool = group.wordIds.map(id=>appData.words.find(w=>w.id===id)).filter(w=>w);
+            if(wordPool.length === 0) { alert("错题本中的单词已不存在，请检查。"); return; }
             currentSession.sourceType = "mistake";
             currentSession.sourceName = "错题本";
         } else {
             const group = appData.groups[groupName];
-            if(!group) return;
+            if(!group) { alert("分组不存在"); return; }
             wordPool = group.wordIds.map(id=>appData.words.find(w=>w.id===id)).filter(w=>w);
             currentSession.sourceType = groupName;
             currentSession.sourceName = groupName;
@@ -437,27 +492,25 @@
         setButtonsEnabled(true);
         showNextButton(false);
         loadNextQuestion();
+        saveCurrentSession();
     }
 
     function startCustomStudy() {
         const groupVal = document.getElementById("customGroupSelect").value;
         let count = parseInt(document.getElementById("customCount").value);
         if(isNaN(count) || count < 1) count = 20;
-        localStorage.setItem(CUSTOM_SETTING_KEY, JSON.stringify({ group: groupVal, count: count }));
-        window._savedCustomGroup = groupVal;
-        window._savedCustomCount = count;
         
-        const lastSession = localStorage.getItem(LAST_SESSION_KEY);
-        if(lastSession && !currentSession.active) {
+        const lastSessionRaw = localStorage.getItem(LAST_SESSION_KEY);
+        if(lastSessionRaw && !currentSession.active) {
             try {
-                const ls = JSON.parse(lastSession);
+                const ls = JSON.parse(lastSessionRaw);
                 if(ls.sourceType && ls.sourceType.startsWith('custom_')) {
                     if(confirm(`发现上次未完成的自定义背诵（${ls.sourceName}，已完成 ${ls.zhanCount}/${ls.totalCount} 个单词），是否继续？`)) {
                         restoreSession(ls);
                         return;
-                    } else { localStorage.removeItem(LAST_SESSION_KEY); }
-                }
-            } catch(e) { localStorage.removeItem(LAST_SESSION_KEY); }
+                    } else { clearSavedSession(); }
+                } else { clearSavedSession(); }
+            } catch(e) { clearSavedSession(); }
         }
         
         let wordPool = [];
@@ -470,10 +523,11 @@
             const group = appData.groups[groupVal];
             if(!group) { alert("分组不存在"); return; }
             wordPool = group.wordIds.map(id=>appData.words.find(w=>w.id===id)).filter(w=>w);
+            if(wordPool.length === 0) { alert("所选分组没有单词"); return; }
             sourceName = `自定义: ${groupVal}(${count}词)`;
             currentSession.sourceType = "custom_" + groupVal;
         }
-        if(wordPool.length === 0) { alert("所选分组没有单词"); return; }
+        if(wordPool.length === 0) { alert("没有单词可背"); return; }
         const shuffled = shuffleArray([...wordPool]);
         const selected = shuffled.slice(0, Math.min(count, wordPool.length));
         if(selected.length === 0) return;
@@ -493,63 +547,28 @@
         setButtonsEnabled(true);
         showNextButton(false);
         loadNextQuestion();
+        saveCurrentSession();
     }
     
     function resumeLastStudy() {
-        const lastSession = localStorage.getItem(LAST_SESSION_KEY);
-        if(!lastSession) { showToast("没有找到上次的背诵记录"); return; }
+        const lastSessionRaw = localStorage.getItem(LAST_SESSION_KEY);
+        if(!lastSessionRaw) { showToast("没有找到上次的背诵记录"); return; }
         if(currentSession.active) { showToast("已有进行中的背诵，请先退出"); return; }
         try {
-            const ls = JSON.parse(lastSession);
+            const ls = JSON.parse(lastSessionRaw);
             restoreSession(ls);
-        } catch(e) { showToast("恢复失败，记录已损坏"); localStorage.removeItem(LAST_SESSION_KEY); }
+        } catch(e) { showToast("恢复失败，记录已损坏"); clearSavedSession(); }
     }
-    
-    function restoreSession(sessionData) {
-        currentSession.active = true;
-        currentSession.sourceType = sessionData.sourceType;
-        currentSession.sourceName = sessionData.sourceName;
-        currentSession.zhanCount = sessionData.zhanCount;
-        currentSession.totalCount = sessionData.totalCount;
-        currentSession.currentMode = sessionData.currentMode || "ru2cn";
-        currentSession.remainingQueue = sessionData.remainingQueue.map(id => appData.words.find(w => w.id === id)).filter(w => w);
-        currentSession.wordPool = sessionData.wordPool ? sessionData.wordPool.map(id => appData.words.find(w => w.id === id)).filter(w => w) : [];
-        currentSession.sessionMistakeCount = sessionData.sessionMistakeCount || {};
-        waitingForNext = false;
-        updateStudyStatsDisplay();
-        showPage("studyPage");
-        document.getElementById("studyTitle").innerHTML = `📖 ${currentSession.sourceName} (继续上次)`;
-        setModeUI();
-        setButtonsEnabled(true);
-        showNextButton(false);
-        if(currentSession.remainingQueue.length > 0) loadNextQuestion();
-        else endStudySession();
-    }
-    
-    function saveCurrentSession() {
-        if(!currentSession.active) return;
-        const sessionToSave = {
-            sourceType: currentSession.sourceType,
-            sourceName: currentSession.sourceName,
-            zhanCount: currentSession.zhanCount,
-            totalCount: currentSession.totalCount,
-            currentMode: currentSession.currentMode,
-            remainingQueue: currentSession.remainingQueue.map(w => w.id),
-            wordPool: currentSession.wordPool.map(w => w.id),
-            sessionMistakeCount: currentSession.sessionMistakeCount
-        };
-        localStorage.setItem(LAST_SESSION_KEY, JSON.stringify(sessionToSave));
-    }
-    
-    function clearSavedSession() { localStorage.removeItem(LAST_SESSION_KEY); }
     
     function endStudySession() {
         currentSession.active = false;
         waitingForNext = false;
         const curZhan = currentSession.zhanCount;
-        appData.stats.lastLastZhan = appData.stats.lastZhan;
-        appData.stats.lastZhan = curZhan;
-        if(curZhan > appData.stats.historyMaxZhan) appData.stats.historyMaxZhan = curZhan;
+        if(curZhan > 0) {
+            appData.stats.lastLastZhan = appData.stats.lastZhan;
+            appData.stats.lastZhan = curZhan;
+            if(curZhan > appData.stats.historyMaxZhan) appData.stats.historyMaxZhan = curZhan;
+        }
         saveToLocal();
         updateStatsDisplay();
         alert(`🎉 本次背诵结束！ 共斩 ${curZhan} / ${currentSession.totalCount} 个单词`);
@@ -594,6 +613,7 @@
         setButtonsEnabled(false);
         waitingForNext = true;
         showNextButton(true);
+        saveCurrentSession();
     }
     
     function checkAnswer() {
@@ -689,18 +709,17 @@
         renderStudyGroupList(); 
         updateStatsDisplay(); 
         refreshCustomGroupSelect();
-        refreshImportGroupSelect();   // 刷新导入页面分组下拉框
+        refreshImportGroupSelect();
     }
     function updateTotalCountDisplay() { document.getElementById("totalCount").innerText = appData.words.length; }
     
-    // 刷新导入页面下拉框
     function refreshImportGroupSelect() {
         const sel = document.getElementById("importTargetGroup");
         if(!sel) return;
         const currentVal = sel.value;
         sel.innerHTML = '<option value="__master__">📚 总库（不加入分组）</option>';
         for(let g in appData.groups) {
-            if(g === "📕 错题本") continue; // 错题本不作为导入目标（可选，但保留也可以）
+            if(g === "📕 错题本") continue;
             const opt = document.createElement("option");
             opt.value = g;
             opt.textContent = g;
@@ -817,8 +836,6 @@
         if(raw) { try { const data=JSON.parse(raw); appData=data; if(!appData.groups["📕 错题本"]) appData.groups["📕 错题本"]={wordIds:[]}; if(!appData.stats) appData.stats={totalAnswers:0,totalCorrect:0,totalWrong:0,historyMaxZhan:0,lastZhan:0,lastLastZhan:0}; ensureMistakeCount(); ensureWordIds(); updateAllUI(); } catch(e){} }
         else addExampleWords();
         updateTotalCountDisplay();
-        const custom=localStorage.getItem(CUSTOM_SETTING_KEY);
-        if(custom) try{const c=JSON.parse(custom); window._savedCustomGroup=c.group; window._savedCustomCount=c.count;}catch(e){}
     }
     
     function showPage(pageId){
@@ -832,6 +849,12 @@
         if(pageId === "customStudyPage") refreshCustomGroupSelect();
         updateStatsDisplay();
     }
+
+    window.addEventListener("beforeunload", () => {
+        if(currentSession.active && currentSession.remainingQueue.length > 0 && currentSession.remainingQueue.length < currentSession.totalCount) {
+            saveCurrentSession();
+        }
+    });
 
     // 事件绑定
     document.getElementById("apiSettingsBtn")?.addEventListener("click",()=>document.getElementById("apiModal").classList.add("active"));
@@ -858,6 +881,7 @@
     document.getElementById("modeRus2Cn")?.addEventListener("click",()=>{ if(currentSession.active && !waitingForNext) { currentSession.currentMode="ru2cn"; setModeUI(); loadNextQuestion(); } });
     document.getElementById("modeCn2Rus")?.addEventListener("click",()=>{ if(currentSession.active && !waitingForNext) { currentSession.currentMode="cn2ru"; setModeUI(); loadNextQuestion(); } });
     document.getElementById("masterSearchInput")?.addEventListener("input",(e)=>{ currentMasterFilter=e.target.value; renderMasterWordList(); });
+    document.getElementById("clearMistakeBookBtn")?.addEventListener("click",clearMistakeBook);
     
     loadFromLocal();
     document.getElementById("apiKeyInput").value = localStorage.getItem(DEEPSEEK_API_KEY) || "";
